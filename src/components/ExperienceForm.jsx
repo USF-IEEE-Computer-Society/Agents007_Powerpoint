@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Field, { inputClass, submitClass } from './FormField'
+import FormError from './FormError'
 
 const BLANK = {
   role: '',
@@ -11,17 +12,21 @@ const BLANK = {
   description: '',
 }
 
-export default function ExperienceForm({ onAdd }) {
+export default function ExperienceForm({ onAdd, error }) {
   const [form, setForm] = useState(BLANK)
+  const [submitting, setSubmitting] = useState(false)
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    onAdd({ ...form, id: crypto.randomUUID() })
-    setForm(BLANK)
+    setSubmitting(true)
+    const saved = await onAdd(form)
+    setSubmitting(false)
+    // Keep what they typed if the save failed, so nothing is lost.
+    if (saved) setForm(BLANK)
   }
 
   return (
@@ -110,8 +115,10 @@ export default function ExperienceForm({ onAdd }) {
         </Field>
       </div>
 
-      <button type="submit" className={submitClass}>
-        Add experience
+      <FormError message={error} />
+
+      <button type="submit" className={submitClass} disabled={submitting}>
+        {submitting ? 'Saving…' : 'Add experience'}
       </button>
     </form>
   )

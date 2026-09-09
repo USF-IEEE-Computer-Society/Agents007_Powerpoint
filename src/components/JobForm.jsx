@@ -1,19 +1,24 @@
 import { useState } from 'react'
 import Field, { inputClass, submitClass } from './FormField'
+import FormError from './FormError'
 
 const BLANK = { title: '', company: '', link: '', description: '' }
 
-export default function JobForm({ onAdd }) {
+export default function JobForm({ onAdd, error }) {
   const [form, setForm] = useState(BLANK)
+  const [submitting, setSubmitting] = useState(false)
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    onAdd({ ...form, id: crypto.randomUUID(), savedAt: new Date().toISOString() })
-    setForm(BLANK)
+    setSubmitting(true)
+    const saved = await onAdd(form)
+    setSubmitting(false)
+    // Keep what they pasted if the save failed, so nothing is lost.
+    if (saved) setForm(BLANK)
   }
 
   return (
@@ -71,8 +76,10 @@ export default function JobForm({ onAdd }) {
         </Field>
       </div>
 
-      <button type="submit" className={submitClass}>
-        Save job description
+      <FormError message={error} />
+
+      <button type="submit" className={submitClass} disabled={submitting}>
+        {submitting ? 'Saving…' : 'Save job description'}
       </button>
     </form>
   )
