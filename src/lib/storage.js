@@ -1,38 +1,53 @@
-const STORAGE_KEY = 'ieeecs-usf.experiences.v1'
-
 /**
- * Read the saved experiences. Returns [] whenever storage is unavailable
- * (private windows, blocked site data) or holds something we can't use, so a
- * bad value never keeps the page from rendering.
+ * Builds a read/write pair over one localStorage key holding a JSON array.
+ *
+ * Every access is guarded: private windows, cleared site data, and browsers
+ * set to block site data throw on access rather than returning null, and an
+ * unguarded read would white-screen the app. Anything unreadable or the wrong
+ * shape degrades to an empty list.
+ *
+ * Keys are versioned. If the shape of a record changes, bump the version and
+ * old records are ignored instead of crashing against the new code.
  */
-export function loadExperiences() {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
+export function createStore(key, isValidItem) {
+  return {
+    load() {
+      try {
+        const raw = window.localStorage.getItem(key)
+        if (!raw) return []
 
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
+        const parsed = JSON.parse(raw)
+        if (!Array.isArray(parsed)) return []
 
-    return parsed.filter(isExperience)
-  } catch {
-    return []
+        return parsed.filter(isValidItem)
+      } catch {
+        return []
+      }
+    },
+
+    save(items) {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(items))
+      } catch {
+        // Storage full or blocked — the in-memory list still works this visit.
+      }
+    },
   }
 }
 
-export function saveExperiences(experiences) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(experiences))
-  } catch {
-    // Storage full or blocked — the in-memory list still works for this visit.
-  }
-}
-
-function isExperience(value) {
+function hasStrings(value, fields) {
   return (
     value !== null &&
     typeof value === 'object' &&
-    typeof value.id === 'string' &&
-    typeof value.role === 'string' &&
-    typeof value.startDate === 'string'
+    fields.every((field) => typeof value[field] === 'string')
   )
 }
+
+export const experienceStore = createStore(
+  'ieeecs-usf.experiences.v1',
+  (value) => hasStrings(value, ['id', 'role', 'startDate']),
+)
+
+export const jobStore = createStore('ieeecs-usf.jobs.v1', (value) =>
+  hasStrings(value, ['id', 'title', 'company', 'description']),
+)

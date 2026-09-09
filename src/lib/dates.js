@@ -16,6 +16,17 @@ export function formatRange({ startDate, endDate, current }) {
   return end ? `${start} – ${end}` : start
 }
 
+/** ISO timestamp -> "Sep 9, 2026" */
+export function formatSavedOn(iso) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
 /** Newest first, roles still held float to the top. */
 export function byMostRecent(a, b) {
   if (a.current !== b.current) return a.current ? -1 : 1
