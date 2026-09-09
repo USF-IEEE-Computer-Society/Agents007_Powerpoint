@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: ieeecs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ieeecs
+      POSTGRES_PASSWORD: ieeecs
+      POSTGRES_DB: resume_kit
+    ports:
+      # Host 5433, not 5432: something is already listening on 5432 on the dev
+      # machine. Change the host half if 5432 is free for you.
+      - '5433:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Runs once, only when the volume is empty. Drop the volume to re-run it:
+      #   docker compose down -v
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ieeecs -d resume_kit']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
