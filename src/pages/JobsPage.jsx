@@ -1,15 +1,17 @@
+import { useState } from 'react'
 import JobForm from '../components/JobForm'
 import JobList from '../components/JobList'
-import { jobStore } from '../lib/storage'
-import { useStoredList } from '../lib/useStoredList'
 
 export default function JobsPage() {
-  const { items, add, remove } = useStoredList(jobStore)
+  const [jobs, setJobs] = useState([])
 
   return (
     <>
-      <JobForm onAdd={add} />
-      <JobList jobs={items} onRemove={remove} />
+      <JobForm onAdd={(job) => setJobs((prev) => [...prev, job])} />
+      <JobList
+        jobs={jobs}
+        onRemove={(id) => setJobs((prev) => prev.filter((job) => job.id !== id))}
+      />
     </>
   )
 }

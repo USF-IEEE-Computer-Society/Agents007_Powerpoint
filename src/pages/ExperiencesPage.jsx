@@ -1,15 +1,21 @@
+import { useState } from 'react'
 import ExperienceForm from '../components/ExperienceForm'
 import ExperienceTimeline from '../components/ExperienceTimeline'
-import { experienceStore } from '../lib/storage'
-import { useStoredList } from '../lib/useStoredList'
 
 export default function ExperiencesPage() {
-  const { items, add, remove } = useStoredList(experienceStore)
+  const [experiences, setExperiences] = useState([])
 
   return (
     <>
-      <ExperienceForm onAdd={add} />
-      <ExperienceTimeline experiences={items} onRemove={remove} />
+      <ExperienceForm
+        onAdd={(entry) => setExperiences((prev) => [...prev, entry])}
+      />
+      <ExperienceTimeline
+        experiences={experiences}
+        onRemove={(id) =>
+          setExperiences((prev) => prev.filter((exp) => exp.id !== id))
+        }
+      />
     </>
   )
 }
