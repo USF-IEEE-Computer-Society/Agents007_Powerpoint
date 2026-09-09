@@ -17,12 +17,15 @@ async function request(path, options = {}) {
   return response.status === 204 ? null : response.json()
 }
 
-export const api = {
-  createExperience: (experience) =>
+export const experiencesApi = {
+  list: () => request('/experiences'),
+  create: (experience) =>
     request('/experiences', { method: 'POST', body: JSON.stringify(experience) }),
-  deleteExperience: (id) => request(`/experiences/${id}`, { method: 'DELETE' }),
+  remove: (id) => request(`/experiences/${id}`, { method: 'DELETE' }),
+}
 
-  createJob: (job) =>
-    request('/jobs', { method: 'POST', body: JSON.stringify(job) }),
-  deleteJob: (id) => request(`/jobs/${id}`, { method: 'DELETE' }),
+export const jobsApi = {
+  list: () => request('/jobs'),
+  create: (job) => request('/jobs', { method: 'POST', body: JSON.stringify(job) }),
+  remove: (id) => request(`/jobs/${id}`, { method: 'DELETE' }),
 }

@@ -1,6 +1,6 @@
 import { formatSavedOn } from '../lib/dates'
 
-export default function JobList({ jobs, onRemove }) {
+export default function JobList({ jobs, loading, onRemove }) {
   // Newest first. savedAt is an ISO string, so it sorts lexicographically.
   const ordered = [...jobs].sort((a, b) =>
     (b.savedAt ?? '').localeCompare(a.savedAt ?? ''),
@@ -12,7 +12,9 @@ export default function JobList({ jobs, onRemove }) {
         Saved postings
       </h2>
 
-      {ordered.length === 0 ? (
+      {loading ? (
+        <p className="mt-4 text-[0.9375rem] text-muted">Loading saved postings…</p>
+      ) : ordered.length === 0 ? (
         <p className="mt-4 max-w-[46ch] text-[0.9375rem] leading-relaxed text-muted">
           Nothing saved yet. Paste a posting and it lands here, so you can come
           back to it when you write your resume.

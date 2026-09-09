@@ -1,6 +1,6 @@
 import { byMostRecent, formatRange } from '../lib/dates'
 
-export default function ExperienceTimeline({ experiences, onRemove }) {
+export default function ExperienceTimeline({ experiences, loading, onRemove }) {
   const ordered = [...experiences].sort(byMostRecent)
 
   return (
@@ -9,7 +9,9 @@ export default function ExperienceTimeline({ experiences, onRemove }) {
         Your record
       </h2>
 
-      {ordered.length === 0 ? (
+      {loading ? (
+        <p className="mt-4 text-[0.9375rem] text-muted">Loading your record…</p>
+      ) : ordered.length === 0 ? (
         <p className="mt-4 max-w-[46ch] text-[0.9375rem] leading-relaxed text-muted">
           Nothing here yet. Add your first experience and it lands on this
           timeline, most recent at the top.

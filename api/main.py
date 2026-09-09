@@ -39,6 +39,31 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/experiences", response_model=list[Experience])
+def list_experiences() -> list[Experience]:
+    # Roles still held first, then most recent — the order the timeline shows.
+    records = rows(
+        """
+        SELECT id, role, company, location, start_date, end_date, current, description
+        FROM experiences
+        ORDER BY current DESC, start_date DESC
+        """
+    )
+    return [
+        Experience(
+            id=r["id"],
+            role=r["role"],
+            company=r["company"],
+            location=r["location"],
+            startDate=r["start_date"],
+            endDate=r["end_date"],
+            current=r["current"],
+            description=r["description"],
+        )
+        for r in records
+    ]
+
+
 @app.post("/api/experiences", response_model=Experience, status_code=201)
 def create_experience(payload: ExperienceIn) -> Experience:
     experience = Experience(**payload.model_dump())
@@ -66,6 +91,28 @@ def create_experience(payload: ExperienceIn) -> Experience:
 def delete_experience(experience_id: UUID) -> None:
     if not execute("DELETE FROM experiences WHERE id = %s", (experience_id,)):
         raise HTTPException(status_code=404, detail="Experience not found")
+
+
+@app.get("/api/jobs", response_model=list[Job])
+def list_jobs() -> list[Job]:
+    records = rows(
+        """
+        SELECT id, title, company, link, description, saved_at
+        FROM jobs
+        ORDER BY saved_at DESC
+        """
+    )
+    return [
+        Job(
+            id=r["id"],
+            title=r["title"],
+            company=r["company"],
+            link=r["link"],
+            description=r["description"],
+            savedAt=r["saved_at"],
+        )
+        for r in records
+    ]
 
 
 @app.post("/api/jobs", response_model=Job, status_code=201)
