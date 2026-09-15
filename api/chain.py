@@ -1,7 +1,8 @@
-"""LangChain chain that turns saved experiences into bullets for one posting.
+"""LangChain chain that picks a student's strongest experiences for a posting.
 
 Reads every experience the student has saved, hands them to Claude along with
-the job description, and gets back resume bullets grouped by experience.
+the job description, and gets back only the ones worth putting on this resume,
+ranked, rewritten as bullets.
 """
 
 import os
@@ -16,14 +17,22 @@ from pydantic import BaseModel, Field
 # ANTHROPIC_MODEL in api/.env if you ever want to spend more for quality.
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5")
 
+DEFAULT_MAX_EXPERIENCES = 4
+
 # The rule that matters most. Rewriting how work is described is the job;
 # inventing work is resume fraud, and a student would be taking that into an
 # interview. It is stated as a hard constraint and repeated in the user turn.
-SYSTEM_PROMPT = """You write resume bullets for university students applying to \
-technical roles. You are helping a member of IEEE-CS at USF tailor what they \
-have already done to one specific posting.
+SYSTEM_PROMPT = """You choose which of a student's experiences belong on a resume \
+for one specific job, and write the bullets for the ones you pick. You are \
+helping a member of IEEE-CS at USF.
 
-Work only from what the student actually wrote. You may:
+Selecting is the main job. A resume is short. Pick only the experiences that \
+genuinely strengthen this application, ordered strongest first, and leave the \
+rest out. Do not fill the list to the limit - if only two experiences really \
+fit the posting, return two. Judge on how well the work matches what the \
+posting asks for, not on how impressive the title sounds.
+
+For each one you pick, write bullets from what the student actually wrote. You may:
 - reframe their wording to match the language of the posting
 - lead with the part of the work the posting cares about
 - tighten phrasing into strong resume bullets, each starting with a past-tense
@@ -33,12 +42,9 @@ You must never:
 - invent metrics, numbers, percentages, team sizes, or outcomes they did not state
 - add technologies, tools, or responsibilities they did not mention
 - claim seniority, ownership, or impact beyond what their description supports
+- select an experience that is not in the list you were given
 
-If an experience says little, write fewer bullets rather than padding it. If an \
-experience is genuinely irrelevant to this posting, still include it with its \
-strongest honest bullet - the student decides what to drop, not you.
-
-Write 2-4 bullets per experience. No trailing periods. No first-person pronouns."""
+Write 2-4 bullets each. No trailing periods. No first-person pronouns."""
 
 USER_PROMPT = """Here is the job description:
 
@@ -46,29 +52,34 @@ USER_PROMPT = """Here is the job description:
 {job_description}
 </job_description>
 
-Here are the student's saved experiences:
+Here is everything the student has saved:
 
 <experiences>
 {experiences}
 </experiences>
 
-Write tailored bullets for each experience, working only from what the student \
-wrote. Invent nothing."""
+Pick at most {max_experiences} of these - fewer if fewer genuinely fit - ranked \
+strongest first for this posting. Copy each experienceId exactly as given. For \
+each, say in one short line why it earns a place on this particular resume, then \
+write the bullets. Work only from what the student wrote. Invent nothing."""
 
 
-class ExperienceBullets(BaseModel):
-    """Bullets for one of the student's experiences."""
+class SelectedExperience(BaseModel):
+    """One experience worth putting on this resume."""
 
     experienceId: str = Field(description="The id of the experience, copied exactly")
     role: str = Field(description="The student's role, copied exactly")
     company: str = Field(description="The organization, copied exactly")
+    whyChosen: str = Field(
+        description="One short line on why this earns a place on this resume"
+    )
     bullets: list[str] = Field(description="2-4 resume bullets tailored to the posting")
 
 
 class TailoredResume(BaseModel):
-    """Every experience, rewritten for one posting."""
+    """The experiences chosen for one posting, strongest first."""
 
-    experiences: list[ExperienceBullets]
+    selected: list[SelectedExperience]
 
 
 def _format_experiences(records: list[dict]) -> str:
@@ -111,17 +122,40 @@ def build_chain():
     return prompt | model.with_structured_output(TailoredResume)
 
 
-def tailor(job_description: str, records: list[dict]) -> dict:
-    """Run the chain and return the payload the frontend downloads."""
+def tailor(
+    job_description: str,
+    records: list[dict],
+    max_experiences: int = DEFAULT_MAX_EXPERIENCES,
+) -> dict:
+    """Run the chain and return the payload the frontend shows and downloads."""
     chain = build_chain()
     result: TailoredResume = chain.invoke(
         {
             "job_description": job_description,
             "experiences": _format_experiences(records),
+            "max_experiences": max_experiences,
         }
     )
+
+    # Keep only picks that name a real experience. A model can return an id
+    # that does not exist; the student should never be shown an experience
+    # they did not save.
+    by_id = {str(r["id"]): r for r in records}
+    selected = [s for s in result.selected if s.experienceId in by_id][:max_experiences]
+
+    # What was left out is a set difference, not something the model reports —
+    # deterministic, free, and impossible to hallucinate.
+    chosen_ids = {s.experienceId for s in selected}
+    not_selected = [
+        {"experienceId": str(r["id"]), "role": r["role"], "company": r["company"]}
+        for r in records
+        if str(r["id"]) not in chosen_ids
+    ]
+
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "model": MODEL,
-        "experiences": [e.model_dump() for e in result.experiences],
+        "consideredCount": len(records),
+        "selected": [s.model_dump() for s in selected],
+        "notSelected": not_selected,
     }

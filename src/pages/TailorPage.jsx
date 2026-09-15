@@ -8,11 +8,11 @@ export default function TailorPage() {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
 
-  async function generate(jobDescription) {
+  async function generate(jobDescription, maxExperiences) {
     setGenerating(true)
     setError('')
     try {
-      setResult(await tailorApi.generate(jobDescription))
+      setResult(await tailorApi.generate(jobDescription, maxExperiences))
     } catch (failure) {
       // The API puts the useful part in `detail` — no experiences saved, no
       // API key, model call failed. Show that rather than a status code.

@@ -8,12 +8,20 @@ import logging
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from chain import tailor
 from db import execute, pool, rows
-from models import Experience, ExperienceIn, Job, JobIn, TailorIn
+from models import (
+    Experience,
+    ExperienceIn,
+    Job,
+    JobIn,
+    TailoredIn,
+    TailorIn,
+)
+from pdf import build_pdf
 
 
 @asynccontextmanager
@@ -164,7 +172,7 @@ def tailor_bullets(payload: TailorIn) -> dict:
         )
 
     try:
-        return tailor(payload.jobDescription, records)
+        return tailor(payload.jobDescription, records, payload.maxExperiences)
     except RuntimeError as exc:
         # Missing API key — a setup problem, not a bad request.
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -177,3 +185,26 @@ def tailor_bullets(payload: TailorIn) -> dict:
             status_code=502,
             detail="The model call failed. Check the API logs for details.",
         ) from exc
+
+
+@app.post("/api/tailor/pdf")
+def tailor_pdf(payload: TailoredIn) -> Response:
+    """Render a result the caller already has as a PDF.
+
+    Takes the result rather than regenerating it, so downloading never costs
+    another model call.
+    """
+    try:
+        pdf = build_pdf(payload.model_dump())
+    except Exception as exc:
+        logger.exception("PDF rendering failed")
+        raise HTTPException(
+            status_code=500, detail="Could not build the PDF."
+        ) from exc
+
+    filename = f"tailored-bullets-{payload.generatedAt[:10]}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

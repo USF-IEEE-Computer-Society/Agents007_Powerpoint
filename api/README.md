@@ -21,8 +21,15 @@ docker-compose database on host port 5433.
 
 ## Bullet tailoring
 
-`POST /api/tailor` takes `{"jobDescription": "..."}`, reads every saved
-experience, and returns them rewritten as bullets for that posting. The chain
+`POST /api/tailor` takes `{"jobDescription": "...", "maxExperiences": 4}`,
+reads every saved experience, and returns only the ones worth putting on that
+resume - ranked strongest first, each with a line on why it was picked, and
+rewritten as bullets. It returns fewer than the limit when fewer genuinely fit.
+What was left out is computed server-side by diffing against the database, so
+it cannot be hallucinated.
+
+`POST /api/tailor/pdf` takes a result the caller already has and returns it as
+a PDF. It does not call the model, so downloading costs nothing. The chain
 lives in `chain.py` and runs `claude-haiku-4-5` through langchain-anthropic,
 with the output shape enforced by `with_structured_output`.
 

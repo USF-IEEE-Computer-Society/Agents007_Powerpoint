@@ -41,6 +41,20 @@ export const jobsApi = {
 }
 
 export const tailorApi = {
-  generate: (jobDescription) =>
-    request('/tailor', { method: 'POST', body: JSON.stringify({ jobDescription }) }),
+  generate: (jobDescription, maxExperiences) =>
+    request('/tailor', {
+      method: 'POST',
+      body: JSON.stringify({ jobDescription, maxExperiences }),
+    }),
+
+  /** Renders a result the browser already has — no second model call. */
+  async pdf(result) {
+    const response = await fetch('/api/tailor/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(result),
+    })
+    if (!response.ok) throw new Error(`PDF failed (${response.status})`)
+    return response.blob()
+  },
 }

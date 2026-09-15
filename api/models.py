@@ -34,3 +34,29 @@ class Job(JobIn):
 
 class TailorIn(BaseModel):
     jobDescription: str = Field(min_length=1)
+    # How many experiences may make the cut. The model returns fewer when
+    # fewer genuinely fit.
+    maxExperiences: int = Field(default=4, ge=1, le=10)
+
+
+class SelectedIn(BaseModel):
+    experienceId: str
+    role: str
+    company: str
+    whyChosen: str = ""
+    bullets: list[str]
+
+
+class NotSelectedIn(BaseModel):
+    experienceId: str
+    role: str
+    company: str
+
+
+class TailoredIn(BaseModel):
+    """A result the browser already has, sent back to be rendered as a PDF."""
+
+    generatedAt: str
+    consideredCount: int = 0
+    selected: list[SelectedIn]
+    notSelected: list[NotSelectedIn] = []

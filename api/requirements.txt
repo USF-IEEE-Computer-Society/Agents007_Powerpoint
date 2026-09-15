@@ -4,3 +4,4 @@ psycopg[binary,pool]==3.2.12
 pydantic==2.12.4
 langchain-anthropic==1.7.2
 langchain-core==1.6.3
+reportlab==5.0.1
