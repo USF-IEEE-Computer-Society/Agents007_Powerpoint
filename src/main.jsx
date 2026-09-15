@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.jsx'
 import ExperiencesPage from './pages/ExperiencesPage.jsx'
 import JobsPage from './pages/JobsPage.jsx'
+import TailorPage from './pages/TailorPage.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -13,6 +14,7 @@ createRoot(document.getElementById('root')).render(
         <Route element={<App />}>
           <Route index element={<ExperiencesPage />} />
           <Route path="jobs" element={<JobsPage />} />
+          <Route path="tailor" element={<TailorPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

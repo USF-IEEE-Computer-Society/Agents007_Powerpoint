@@ -30,3 +30,7 @@ class JobIn(BaseModel):
 class Job(JobIn):
     id: UUID = Field(default_factory=uuid4)
     savedAt: datetime
+
+
+class TailorIn(BaseModel):
+    jobDescription: str = Field(min_length=1)

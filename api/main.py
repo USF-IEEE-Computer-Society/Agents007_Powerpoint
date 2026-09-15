@@ -10,8 +10,9 @@ from uuid import UUID
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from chain import tailor
 from db import execute, pool, rows
-from models import Experience, ExperienceIn, Job, JobIn
+from models import Experience, ExperienceIn, Job, JobIn, TailorIn
 
 
 @asynccontextmanager
@@ -141,3 +142,30 @@ def create_job(payload: JobIn) -> Job:
 def delete_job(job_id: UUID) -> None:
     if not execute("DELETE FROM jobs WHERE id = %s", (job_id,)):
         raise HTTPException(status_code=404, detail="Job not found")
+
+
+@app.post("/api/tailor")
+def tailor_bullets(payload: TailorIn) -> dict:
+    """Rewrite every saved experience into bullets for one posting."""
+    records = rows(
+        """
+        SELECT id, role, company, location, start_date, end_date, current, description
+        FROM experiences
+        ORDER BY current DESC, start_date DESC
+        """
+    )
+    if not records:
+        raise HTTPException(
+            status_code=400,
+            detail="Add at least one experience before generating bullets.",
+        )
+
+    try:
+        return tailor(payload.jobDescription, records)
+    except RuntimeError as exc:
+        # Missing API key — a setup problem, not a bad request.
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502, detail=f"The model call failed: {exc}"
+        ) from exc

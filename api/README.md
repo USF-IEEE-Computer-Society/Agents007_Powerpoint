@@ -18,3 +18,23 @@ from the repo root in a second terminal.
 
 `DATABASE_URL` overrides the connection string; it defaults to the
 docker-compose database on host port 5433.
+
+## Bullet tailoring
+
+`POST /api/tailor` takes `{"jobDescription": "..."}`, reads every saved
+experience, and returns them rewritten as bullets for that posting. The chain
+lives in `chain.py` and runs `claude-opus-5` through langchain-anthropic, with
+the output shape enforced by `with_structured_output`.
+
+This needs an Anthropic API key:
+
+```bash
+cp .env.example .env     # then paste your key into it
+```
+
+`just api` loads `api/.env` automatically. Without a key the endpoint returns
+503 with a message saying so rather than failing at startup.
+
+**Each generation is a billed API call.** The prompt constrains Claude to work
+only from what the student wrote - it must not invent metrics, technologies, or
+outcomes - but read the bullets before using them.

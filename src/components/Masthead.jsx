@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 const LINKS = [
   { to: '/', label: 'Experiences', end: true },
   { to: '/jobs', label: 'Job descriptions', end: false },
+  { to: '/tailor', label: 'Tailor', end: false },
 ]
 
 export default function Masthead() {

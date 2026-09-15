@@ -4,6 +4,12 @@
 # and the vite dev server. `just setup` once, then `just db` and, in two more
 # terminals, `just api` and `just dev`.
 
+# Loads api/.env into every recipe, so ANTHROPIC_API_KEY reaches the API
+# without exporting it by hand. Not required — recipes run fine without it.
+set dotenv-load := true
+set dotenv-filename := "api/.env"
+set dotenv-required := false
+
 venv := "api/.venv"
 python := venv / "bin/python"
 pip := venv / "bin/pip"

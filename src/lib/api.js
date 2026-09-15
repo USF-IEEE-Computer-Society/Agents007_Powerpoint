@@ -10,7 +10,17 @@ async function request(path, options = {}) {
   })
 
   if (!response.ok) {
-    throw new Error(`${options.method ?? 'GET'} /api${path} failed (${response.status})`)
+    const error = new Error(
+      `${options.method ?? 'GET'} /api${path} failed (${response.status})`,
+    )
+    error.status = response.status
+    // FastAPI puts the readable reason in `detail`. Keep it on the error so
+    // the page can show why rather than just that something failed.
+    error.detail = await response
+      .json()
+      .then((body) => (typeof body.detail === 'string' ? body.detail : null))
+      .catch(() => null)
+    throw error
   }
 
   // 204 has no body.
@@ -28,4 +38,9 @@ export const jobsApi = {
   list: () => request('/jobs'),
   create: (job) => request('/jobs', { method: 'POST', body: JSON.stringify(job) }),
   remove: (id) => request(`/jobs/${id}`, { method: 'DELETE' }),
+}
+
+export const tailorApi = {
+  generate: (jobDescription) =>
+    request('/tailor', { method: 'POST', body: JSON.stringify({ jobDescription }) }),
 }
