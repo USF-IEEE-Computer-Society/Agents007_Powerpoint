@@ -1,23 +1,30 @@
 import { useState } from 'react'
 import TailorForm from '../components/TailorForm'
 import TailoredBullets from '../components/TailoredBullets'
+import AgentRun from '../components/AgentRun'
+import AgentGraph from '../components/AgentGraph'
 import { tailorApi } from '../lib/api'
 
 export default function TailorPage() {
   const [result, setResult] = useState(null)
+  const [steps, setSteps] = useState([])
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
 
   async function generate(jobDescription, maxExperiences) {
     setGenerating(true)
     setError('')
+    setSteps([])
+    setResult(null)
     try {
-      setResult(await tailorApi.generate(jobDescription, maxExperiences))
+      // Each node reports as it finishes, so the graph is visible while it runs.
+      const finished = await tailorApi.run(
+        { jobDescription, maxExperiences },
+        (step) => setSteps((prev) => [...prev, step]),
+      )
+      setResult(finished)
     } catch (failure) {
-      // The API puts the useful part in `detail` — no experiences saved, no
-      // API key, model call failed. Show that rather than a status code.
-      setError(failure.detail ?? 'Generating bullets failed. Is the API running?')
-      setResult(null)
+      setError(failure.detail ?? 'The agent run failed. Is the API running?')
     } finally {
       setGenerating(false)
     }
@@ -26,7 +33,11 @@ export default function TailorPage() {
   return (
     <>
       <TailorForm onGenerate={generate} generating={generating} error={error} />
-      <TailoredBullets result={result} generating={generating} />
+      <div>
+        <AgentRun steps={steps} running={generating} />
+        <TailoredBullets result={result} generating={generating} />
+        <AgentGraph />
+      </div>
     </>
   )
 }

@@ -70,6 +70,8 @@ export default function TailoredBullets({ result, generating }) {
         <>
           <p className="mt-1 text-[0.8125rem] text-muted">
             Picked from {result.consideredCount}, strongest first
+            {result.revisions > 0 &&
+              ` · ${result.revisions} revision${result.revisions > 1 ? 's' : ''} after review`}
           </p>
 
           <ol className="mt-6 max-w-[38rem] space-y-7">

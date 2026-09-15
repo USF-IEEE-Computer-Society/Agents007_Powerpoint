@@ -19,7 +19,7 @@ from the repo root in a second terminal.
 `DATABASE_URL` overrides the connection string; it defaults to the
 docker-compose database on host port 5433.
 
-## Bullet tailoring
+## The agent
 
 `POST /api/tailor` takes `{"jobDescription": "...", "maxExperiences": 4}`,
 reads every saved experience, and returns only the ones worth putting on that
@@ -29,12 +29,31 @@ What was left out is computed server-side by diffing against the database, so
 it cannot be hallucinated.
 
 `POST /api/tailor/pdf` takes a result the caller already has and returns it as
-a PDF. It does not call the model, so downloading costs nothing. The chain
-lives in `chain.py` and runs `claude-haiku-4-5` through langchain-anthropic,
-with the output shape enforced by `with_structured_output`.
+a PDF. It does not call the model, so downloading costs nothing. Tailoring runs a LangGraph agent in `agent.py`, not a single call:
+
+    select ──▶ write ──▶ critique ──▶ (clean?) ──▶ END
+                 ▲                        │
+                 └──────── revise ────────┘
+
+`select` picks which experiences belong on the resume, `write` drafts bullets,
+and `critique` checks every bullet against what the student actually wrote. If
+the critic finds an invented claim, the conditional edge sends the bullets back
+to `write` with that feedback - up to `MAX_REVISIONS` (2), so it cannot loop
+forever. That cycle is what LangGraph gives you over a plain chain.
+
+`GET /api/agent/graph` returns the graph's own mermaid diagram, so the picture
+on the page is generated from the compiled graph and cannot drift from the code.
+
+`POST /api/tailor/stream` runs the agent over server-sent events, emitting one
+event per node so the page shows the cycle happening. `POST /api/tailor` runs
+the same graph and returns only the final result.
+
+`chain.py` is the earlier single-call version, kept for the workshop to compare
+against.
 
 Haiku 4.5 is the cheapest current model ($1/$5 per million tokens in/out). A
-measured run costs about $0.002 — roughly 2,500 generations per $5 of credit.
+measured agent run is 3 calls (select, write, critique) at about $0.005 -
+roughly 900 generations per $5 of credit. A revision adds two more calls.
 Set `ANTHROPIC_MODEL` in `.env` to use a different one.
 
 This needs an Anthropic API key:

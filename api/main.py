@@ -4,14 +4,16 @@ The browser cannot talk to postgres directly, so this service sits between
 the React frontend and the database.
 """
 
+import json
 import logging
 from contextlib import asynccontextmanager
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Response
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from chain import tailor
+from agent import AGENT, MAX_REVISIONS, final_payload, mermaid
 from db import execute, pool, rows
 from models import (
     Experience,
@@ -157,33 +159,23 @@ def delete_job(job_id: UUID) -> None:
 
 @app.post("/api/tailor")
 def tailor_bullets(payload: TailorIn) -> dict:
-    """Rewrite every saved experience into bullets for one posting."""
-    records = rows(
-        """
-        SELECT id, role, company, location, start_date, end_date, current, description
-        FROM experiences
-        ORDER BY current DESC, start_date DESC
-        """
-    )
-    if not records:
-        raise HTTPException(
-            status_code=400,
-            detail="Add at least one experience before generating bullets.",
-        )
-
+    """Run the agent to completion and return the finished result."""
+    records = _load_experiences()
     try:
-        return tailor(payload.jobDescription, records, payload.maxExperiences)
+        state = AGENT.invoke({
+            "job_description": payload.jobDescription,
+            "records": records,
+            "max_experiences": payload.maxExperiences,
+            "selected": [], "drafts": [], "issues": [], "revisions": 0, "trace": [],
+        })
+        return final_payload(state, records)
     except RuntimeError as exc:
-        # Missing API key — a setup problem, not a bad request.
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
-        # Log the real reason server-side; send the browser a generic message.
-        # Exception text can carry request details, and this response is
-        # attacker-reachable — it is not a place to echo internals.
-        logger.exception("Tailoring call failed")
+        logger.exception("Agent run failed")
         raise HTTPException(
             status_code=502,
-            detail="The model call failed. Check the API logs for details.",
+            detail="The agent run failed. Check the API logs for details.",
         ) from exc
 
 
@@ -207,4 +199,82 @@ def tailor_pdf(payload: TailoredIn) -> Response:
         content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _load_experiences() -> list[dict]:
+    records = rows(
+        """
+        SELECT id, role, company, location, start_date, end_date, current, description
+        FROM experiences
+        ORDER BY current DESC, start_date DESC
+        """
+    )
+    if not records:
+        raise HTTPException(
+            status_code=400,
+            detail="Add at least one experience before generating bullets.",
+        )
+    return records
+
+
+@app.get("/api/agent/graph")
+def agent_graph() -> dict:
+    """The graph's own mermaid diagram, generated from the compiled graph."""
+    return {"mermaid": mermaid(), "maxRevisions": MAX_REVISIONS}
+
+
+@app.post("/api/tailor/stream")
+def tailor_stream(payload: TailorIn) -> StreamingResponse:
+    """Run the agent, streaming each node as it finishes.
+
+    Server-sent events. Every node emits one event so the page can show the
+    cycle happening — including the trip back to `write` when the critic
+    rejects a bullet.
+    """
+    records = _load_experiences()
+
+    def events():
+        def sse(obj: dict) -> str:
+            return f"data: {json.dumps(obj)}\n\n"
+
+        state: dict = {}
+        try:
+            stream = AGENT.stream(
+                {
+                    "job_description": payload.jobDescription,
+                    "records": records,
+                    "max_experiences": payload.maxExperiences,
+                    "selected": [],
+                    "drafts": [],
+                    "issues": [],
+                    "revisions": 0,
+                    "trace": [],
+                },
+                stream_mode="updates",
+            )
+            for update in stream:
+                for node, delta in update.items():
+                    state.update(delta)
+                    step = (delta.get("trace") or [{}])[-1]
+                    yield sse({
+                        "type": "node",
+                        "node": node,
+                        "detail": step.get("detail", ""),
+                        "revisions": state.get("revisions", 0),
+                    })
+            yield sse({"type": "done", "result": final_payload(state, records)})
+        except RuntimeError as exc:
+            yield sse({"type": "error", "detail": str(exc)})
+        except Exception:
+            logger.exception("Agent run failed")
+            yield sse({
+                "type": "error",
+                "detail": "The agent run failed. Check the API logs for details.",
+            })
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
