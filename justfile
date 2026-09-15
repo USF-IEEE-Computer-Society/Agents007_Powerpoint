@@ -46,6 +46,16 @@ db-reset:
     docker compose down -v
     @just db
 
+# Load demo tech experiences. Safe to run twice — ids are fixed.
+seed:
+    docker exec -i ieeecs-postgres psql -U ieeecs -d resume_kit -q < db/seed.sql
+    @just db-rows
+
+# Delete every experience and posting, keeping the tables.
+db-clear:
+    docker exec ieeecs-postgres psql -U ieeecs -d resume_kit -q -c 'TRUNCATE experiences, jobs;'
+    @echo "cleared"
+
 # Open a psql shell against the running database.
 psql:
     docker exec -it ieeecs-postgres psql -U ieeecs -d resume_kit
