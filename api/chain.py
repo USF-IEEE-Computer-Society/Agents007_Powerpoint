@@ -11,7 +11,10 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
-MODEL = "claude-opus-5"
+# Haiku 4.5 is the cheapest current model: $1/$5 per million tokens in/out.
+# A run here is roughly 2K in / 600 out, so well under a cent. Override with
+# ANTHROPIC_MODEL in api/.env if you ever want to spend more for quality.
+MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5")
 
 # The rule that matters most. Rewriting how work is described is the job;
 # inventing work is resume fraud, and a student would be taking that into an
@@ -97,7 +100,9 @@ def build_chain():
             "before starting the API."
         )
 
-    model = ChatAnthropic(model=MODEL, max_tokens=16000)
+    # The output is a few bullets per experience — 4000 is generous. This is
+    # a ceiling, not a spend: billing is on tokens actually produced.
+    model = ChatAnthropic(model=MODEL, max_tokens=4000)
     prompt = ChatPromptTemplate.from_messages(
         [("system", SYSTEM_PROMPT), ("human", USER_PROMPT)]
     )

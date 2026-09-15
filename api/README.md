@@ -23,8 +23,12 @@ docker-compose database on host port 5433.
 
 `POST /api/tailor` takes `{"jobDescription": "..."}`, reads every saved
 experience, and returns them rewritten as bullets for that posting. The chain
-lives in `chain.py` and runs `claude-opus-5` through langchain-anthropic, with
-the output shape enforced by `with_structured_output`.
+lives in `chain.py` and runs `claude-haiku-4-5` through langchain-anthropic,
+with the output shape enforced by `with_structured_output`.
+
+Haiku 4.5 is the cheapest current model ($1/$5 per million tokens in/out). A
+measured run costs about $0.002 — roughly 2,500 generations per $5 of credit.
+Set `ANTHROPIC_MODEL` in `.env` to use a different one.
 
 This needs an Anthropic API key:
 

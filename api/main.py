@@ -4,6 +4,7 @@ The browser cannot talk to postgres directly, so this service sits between
 the React frontend and the database.
 """
 
+import logging
 from contextlib import asynccontextmanager
 from uuid import UUID
 
@@ -22,6 +23,8 @@ async def lifespan(app: FastAPI):
     yield
     pool.close()
 
+
+logger = logging.getLogger("uvicorn.error")
 
 app = FastAPI(title="Resume Kit API", lifespan=lifespan)
 
@@ -166,6 +169,11 @@ def tailor_bullets(payload: TailorIn) -> dict:
         # Missing API key — a setup problem, not a bad request.
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
+        # Log the real reason server-side; send the browser a generic message.
+        # Exception text can carry request details, and this response is
+        # attacker-reachable — it is not a place to echo internals.
+        logger.exception("Tailoring call failed")
         raise HTTPException(
-            status_code=502, detail=f"The model call failed: {exc}"
+            status_code=502,
+            detail="The model call failed. Check the API logs for details.",
         ) from exc
